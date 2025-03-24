@@ -5,7 +5,7 @@ from psycopg2.extras import RealDictCursor
 from datetime import datetime
 
 # Carrega as variáveis de ambiente
-load_dotenv()
+load_dotenv(".env")
 
 def get_db_connection():
     """Cria uma conexão com o banco de dados PostgreSQL"""
@@ -23,6 +23,49 @@ def get_dias_uteis(mes, ano):
     # Por enquanto, retornando valores fixos para exemplo
     return [22, 15]  # [dias_uteis, dias_passados]
 
+def get_metas(mes, ano):
+    """Retorna as metas do mês e ano fornecidos"""
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    
+    try:
+        query = """
+        SELECT
+            mes_num,
+            "Meta_Individual"::numeric,
+            "Meta_Geral"::numeric
+        FROM metas
+        WHERE mes_num = %s AND ano = %s
+        """
+        
+        cur.execute(query, [mes, ano])
+        metas = cur.fetchone()
+        return metas
+        
+    finally:
+        cur.close()
+        conn.close()
+
+def get_avancado():
+    """Retorna a equipe"""
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    
+    try:
+        query = """
+        SELECT
+            *
+        FROM equipe_completa
+        WHERE "CARGO" = 'AVANÇADO'
+        """
+        cur.execute(query)
+        avancado = cur.fetchone()
+        return avancado
+        
+    finally:
+        cur.close()
+        conn.close()
+
 def get_dados_dashboard(mes, ano, avancado):
     """Retorna os dados do dashboard baseado nas queries fornecidas"""
     conn = get_db_connection()
@@ -31,7 +74,7 @@ def get_dados_dashboard(mes, ano, avancado):
     try:
         dias_uteis = get_dias_uteis(mes, ano)
         
-        query = """
+        query_tabela = """
         WITH
             Liquidado_mensal as (
                 SELECT
@@ -118,12 +161,15 @@ def get_dados_dashboard(mes, ano, avancado):
             "Foto",
             "EMAIL"
         FROM Tabela_Geral
-        WHERE avancado = %s
+        WHERE CASE
+            WHEN %s = 'TODOS' THEN true
+            ELSE avancado = %s
+        END
         ORDER BY rank_mensal
         """
         
         # Parâmetros da query
-        params = [
+        params_tabela = [
             mes, ano,  # Liquidado_mensal
             ano,       # Liquidado_anual
             mes, ano,  # Valor_a_Receber
@@ -132,10 +178,10 @@ def get_dados_dashboard(mes, ano, avancado):
             dias_uteis[0],  # meta_diaria
             dias_uteis[0], dias_uteis[1],  # deficit_superavit
             dias_uteis[0], dias_uteis[1],  # sup_def_cat
-            avancado  # WHERE avancado = %s
+            avancado,avancado,  # WHEN %s = 'TODOS' THEN WHERE avancado != %s
         ]
         
-        cur.execute(query, params)
+        cur.execute(query_tabela, params_tabela)
         dados = cur.fetchall()
         return dados
         

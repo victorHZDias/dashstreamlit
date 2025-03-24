@@ -30,5 +30,11 @@ USUARIOS_AUTORIZADOS = {
         "role": "avancado",
         "nome": "victor hugo zanella dias",
         "ativo": True
+    },
+    "ALEX.U@uninter.com": {
+        "password": "alex123",
+        "role": "avancado",
+        "nome": "ALEX DIAS DA CUNHA",
+        "ativo": True
     }
 }
