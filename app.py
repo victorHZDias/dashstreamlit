@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import numpy as np
 from config import USUARIOS_AUTORIZADOS
-from database import get_dados_dashboard,get_metas,get_avancado
+from database import get_dados_dashboard,get_metas,get_avancado,get_dias_uteis
 # from database import get_dados_dashboard,get_metas,get_avancado
 import json
 import os
@@ -109,9 +109,9 @@ else:
     mes=st.sidebar.selectbox("Mês", range(1, 13), format_func=lambda x: datetime(2000, x, 1).strftime('%B'))
     ano=st.sidebar.selectbox("Ano", range(2020, datetime.now().year + 1), index=len(range(2020, datetime.now().year + 1))-1)
 
-    colab=database.get_avancado()
-
-    avancado=st.sidebar.selectbox("Selecione o Avançado",["ALEX DIAS DA CUNHA","ADOILSON LIMA DO NASCIMENTO","TODOS"])
+    colab=get_avancado()
+    colab.append("TODOS")
+    avancado=st.sidebar.selectbox("Selecione o Avançado",colab)
 
     if menu == "Gerenciar Usuários" and st.session_state.role == 'admin':
         st.title("👥 Gerenciamento de Usuários")
@@ -181,19 +181,23 @@ else:
         try:
             dados = get_dados_dashboard(mes, ano, avancado)
             metas=get_metas(mes, ano)
-            df = pd.DataFrame(dados)
+            dias_uteis = get_dias_uteis(mes, ano)
+            df = pd.DataFrame(dados[0])
             
             # Métricas principais
             col1, col2, col3, col4 = st.columns(4)
 
             with col1:
-                valor_total = df['valor_liquidado_mes'].sum()
-                meta_total = df['Meta_Individual'].sum()
+
+                valor_total = dados[1]
+                meta_total = metas["Meta_Geral"]
                 percentual_meta = (valor_total / meta_total) * 100
                 st.metric("Valor Total Liquidado", f"R$ {valor_total:,.2f}", f"{percentual_meta:.1f}% da meta")
 
             with col2:
-                media_diaria = df['valor_liquidado_mes'].mean()
+                media_diaria = meta_total/dias_uteis[0]
+                meta_total
+                dias_uteis[0]
                 st.metric("Média Diária Liquidada", f"R$ {media_diaria:,.2f}")
 
             with col3:

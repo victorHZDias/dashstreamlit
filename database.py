@@ -21,7 +21,7 @@ def get_dias_uteis(mes, ano):
     """Retorna o número de dias úteis no mês"""
     # Aqui você pode implementar a lógica para calcular os dias úteis
     # Por enquanto, retornando valores fixos para exemplo
-    return [22, 15]  # [dias_uteis, dias_passados]
+    return [20, 17]  # [dias_uteis, dias_passados]
 
 def get_metas(mes, ano):
     """Retorna as metas do mês e ano fornecidos"""
@@ -47,20 +47,20 @@ def get_metas(mes, ano):
         conn.close()
 
 def get_avancado():
-    """Retorna a equipe"""
+    """Retorna a equipe como uma lista"""
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
     
     try:
         query = """
-        SELECT
-            *
-        FROM equipe_completa
-        WHERE "CARGO" = 'AVANÇADO'
+            SELECT
+                DISTINCT "Nome_Colaborador"
+            FROM "Equipe_Completa" WHERE "CARGO"='AVANÇADO'
+            ORDER BY "Nome_Colaborador"
         """
         cur.execute(query)
-        avancado = cur.fetchone()
-        return avancado
+        avancado = cur.fetchall()
+        return [item["Nome_Colaborador"] for item in avancado]
         
     finally:
         cur.close()
@@ -182,8 +182,17 @@ def get_dados_dashboard(mes, ano, avancado):
         ]
         
         cur.execute(query_tabela, params_tabela)
-        dados = cur.fetchall()
-        return dados
+        dados_tabela = cur.fetchall()
+
+        query_liquidado = """
+            select sum("Valor_Liquidado"::numeric) as valor_liquidado
+            from "Liquidado"
+            where extract('month' from "Data_Liquidacao") = %s and extract('year' from "Data_Liquidacao") = %s
+"""
+        cur.execute(query_liquidado, [mes, ano])
+        valor_liquidado = cur.fetchone()
+
+        return [dados_tabela, valor_liquidado["valor_liquidado"]]
         
     finally:
         cur.close()
