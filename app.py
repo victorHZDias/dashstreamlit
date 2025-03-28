@@ -175,7 +175,7 @@ else:
 
     else:
         # Título do dashboard
-        st.title("📊 Dashboard de Desempenho - Setor de Cobrança")
+        st.title("📊Desempenho - Setor de Cobrança")
  
         # Buscar dados do banco
         try:
@@ -183,7 +183,6 @@ else:
             metas=get_metas(mes, ano)
             dias_uteis = get_dias_uteis(mes, ano)
             df = pd.DataFrame(dados[0])
-            
             # Métricas principais
             col1, col2, col3, col4 = st.columns(4)
 
@@ -196,8 +195,6 @@ else:
 
             with col2:
                 media_diaria = meta_total/dias_uteis[0]
-                meta_total
-                dias_uteis[0]
                 st.metric("Média Diária Liquidada", f"R$ {media_diaria:,.2f}")
 
             with col3:
@@ -209,46 +206,168 @@ else:
                 st.metric("Valor Pendente", f"R$ {valor_pendente:,.2f}")
 
             # Gráficos
-            st.subheader("Desempenho por Colaborador")
             col5, col6 = st.columns(2)
+            dfAvan = df.groupby('avancado', as_index=False)['valor_liquidado_mes'].sum().sort_values('valor_liquidado_mes', ascending=False)
 
             with col5:
-                fig_assistentes = px.bar(df, 
-                                       x='colaborador', 
-                                       y='valor_liquidado_mes',
-                                       title='Valor Liquidado por Colaborador',
-                                       labels={'valor_liquidado_mes': 'Valor Liquidado (R$)', 
-                                              'colaborador': 'Colaborador'})
-                st.plotly_chart(fig_assistentes, use_container_width=True)
+                with st.container(border=True):
+                    dfAssist = df.sort_values('valor_liquidado_mes')
+                    fig_meta = go.Figure()
+
+                    # Adicionar barras de valor liquidado
+                    fig_meta.add_trace(go.Bar(
+                        y=dfAssist['colaborador'],
+                        x=dfAssist['valor_liquidado_mes'],
+                        orientation='h',
+                        name='Valor Liquidado',
+                        marker=dict(
+                            color='blue',  # Azul como cor principal
+                            opacity=0.8,
+                            line=dict(width=1.5, color='blue'),
+                            cornerradius=3
+                        )
+                    ))
+
+                    # Adicionar barras de valor a receber
+                    fig_meta.add_trace(go.Bar(
+                        y=dfAssist['colaborador'],
+                        x=dfAssist['valor_a_receber_mes'],
+                        orientation='h',
+                        name='Valor a Receber',
+                        marker=dict(
+                            color='lightblue',  # Tons de azul para destaque
+                            opacity=0.6,
+                            line=dict(width=1.5, color='lightblue'),
+                            cornerradius=3
+                        )
+                    ))
+
+                    # Adicionar linha de meta
+                    fig_meta.add_trace(go.Scatter(
+                        y=df['colaborador'],
+                        x=df['Meta_Individual'],
+                        mode='lines',
+                        name='Meta Individual',
+                        line=dict(color='red', width=4, dash='dot')  # Vermelho para chamar atenção
+                    ))
+
+                    fig_meta.update_layout(
+                        title='Valor Liquidado e Valor a Receber vs Meta Individual',
+                        xaxis_title='Valor (R$)',
+                        yaxis_title='Colaborador',
+                        barmode='stack',  # Empilhamento das barras
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                        height=750,  # Aumentar a altura do gráfico
+                        margin=dict(l=200)  # Aumentar a margem esquerda para acomodar os nomes
+                    )
+
+                    # Reduzir o tamanho do texto no eixo Y para caber todos os nomes
+                    fig_meta.update_yaxes(tickfont=dict(size=10), automargin=True)
+
+                    st.plotly_chart(fig_meta, use_container_width=True)
 
             with col6:
-                fig_meta = px.bar(df, 
-                                x='colaborador', 
-                                y=['valor_liquidado_mes', 'Meta_Individual'],
-                                title='Valor Liquidado vs Meta Individual',
-                                labels={'value': 'Valor (R$)', 'colaborador': 'Colaborador'})
-                st.plotly_chart(fig_meta, use_container_width=True)
+                with st.container(border=True, height=300):
+                    # Gráfico Gauge baseado no percentual liquidado em relação à meta
+                    percentual_liquidado = round((valor_total / meta_total) * 100, 2)
+                    fig_gauge = go.Figure(go.Indicator(
+                                mode="gauge+number+delta",
+                                value=percentual_liquidado,
+                                domain={'x': [0, 1], 'y': [0, 1]},
+                                gauge={
+                                    'axis': {'range': [None, 100], 'tickwidth': 1},
+                                    'bar': {'color': "blue"},  # Azul para barra do gauge
+                                    'borderwidth': 3, 'bordercolor': "lightblue"  # Tons de azul para borda
+                                },
+                                delta={'reference': 100, 'increasing': {'color': "skyblue"}},  # Tons de azul para delta
+                                ))
+                    fig_gauge.update_layout(
+                        width=300,  # Reduz a largura do gráfico
+                        height=250,  # Reduz a altura do gráfico
+                        margin=dict(l=10, r=10, t=20, b=10),  # Ajusta margens para centralizar
+                        paper_bgcolor="rgba(0,0,0,0)",  # Fundo transparente
+                        title='Liquidado vs Meta (%)',
+                    )
+                    st.plotly_chart(fig_gauge, use_container_width=True)  # Ajusta largura ao container
+                with st.container(border=True,height=465):
+                    fig_assistentes = px.bar(dfAvan,
+                                            x='avancado', 
+                                            y='valor_liquidado_mes',
+                                            labels={'valor_liquidado_mes': 'Valor Liquidado (R$)', 
+                                                    'avancado': 'Avançado'}
+                                            )
+                    fig_assistentes.update_yaxes(range=[0, 1_000_000])  # Define o limite do eixo Y para 1 milhão
+                    fig_assistentes.update_layout(
+                        margin=dict(l=8, r=8, t=20, b=1),  # Ajusta margens para centralizar
+                        width=350,  # Reduz a largura do gráfico
+                        height=400,  # Reduz a altura do gráfico
+                        paper_bgcolor="rgba(0,0,0,0)",  # Fundo transparente
+                        title='Valor Liquidado por equipe',
+                    )
+                    st.plotly_chart(fig_assistentes, use_container_width=True)
+                    # Gráfico de pódio com os 10 primeiros do rank anual
 
             # Tabela de dados
             st.subheader("Dados Detalhados")
             tabela_detalhada = df[[
-                'colaborador', 'valor_liquidado_mes', 'Meta_Individual',
-                'percentual_liquidado', 'falta_meta', 'deficit_superavit',
-                'valor_a_receber_mes', 'negociado_dia'
-            ]].copy()
+                            'rank_mensal', 'rank_anual', 'colaborador', 'avancado',
+                            'Meta_Individual', 'meta_diaria', 'valor_liquidado_mes',
+                            'percentual_liquidado', 'falta_meta', 'deficit_superavit',
+                            'sup_def_cat', 'valor_a_receber_mes', 'negociado_dia',
+                            'valor_liquidado_ano']].copy()
 
-            tabela_detalhada.columns = [
-                'Colaborador', 'Valor Liquidado', 'Meta Individual',
-                '% da Meta', 'Falta Meta', 'Déficit/Superávit',
-                'Valor a Receber', 'Negociado'
-            ]
+            # tabela_detalhada.columns = [
+            #     'Rank Mensal','Rank Anual','Colaborador', 'Avancado', 'Meta Individual', 'Meta Diaria','Valor Liquidado',
+            #     '% da Meta', 'Falta Meta', 'Déficit/Superávit','sup_def_cat',
+            #     'Valor a Receber', 'Negociado','valor_liquidado_ano'
+            # ]
 
-            st.dataframe(df.style.format({
-                'Valor Liquidado': 'R$ {:,.2f}',
-                'Meta Individual': 'R$ {:,.2f}',
-                'Valor a Receber': 'R$ {:,.2f}',
-                'Negociado': 'R$ {:,.2f}'
-            }),hide_index=True)
+            with st.expander("Exibir Tabela"):
+                st.dataframe(tabela_detalhada.fillna(0).style.format({
+                    'valor_liquidado_mes': 'R$ {:,.2f}',
+                    'Meta_Individual': 'R$ {:,.2f}',
+                    'valor_a_receber_mes': 'R$ {:,.2f}',
+                    'negociado_dia': 'R$ {:,.2f}'
+                }),hide_index=True)
+                
+            st.subheader("🏅 Top 10 - Rank Mensal e Anual")
+            try:
+                # Filtrar os 10 primeiros do rank mensal e anual
+                top_10_mensal = df.nsmallest(10, 'rank_mensal')
+                top_10_anual = df.nsmallest(10, 'rank_anual')
+
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.markdown("### 🏅 Rank Mensal")
+                    for i, row in top_10_mensal.iterrows():
+                        col_img, col_text = st.columns([1, 4])
+                        with col_img:
+                            if 'Foto' in row and row['Foto']:
+                                st.image(row['Foto'], width=50, caption=f"#{row['rank_mensal']}")
+                            else:
+                                st.text(f"#{row['rank_mensal']}")
+                        with col_text:
+                            st.markdown(f"**{row['colaborador']}**")
+                            st.markdown(f"Valor Liquidado Mensal: R$ {row['valor_liquidado_mes']:,.2f}")
+                        st.markdown("---")
+
+                with col2:
+                    st.markdown("### 🏆 Rank Anual")
+                    for i, row in top_10_anual.iterrows():
+                        col_img, col_text = st.columns([1, 4])
+                        with col_img:
+                            if 'Foto' in row and row['Foto']:
+                                st.image(row['Foto'], width=50, caption=f"#{row['rank_anual']}")
+                            else:
+                                st.text(f"#{row['rank_anual']}")
+                        with col_text:
+                            st.markdown(f"**{row['colaborador']}**")
+                            st.markdown(f"Valor Liquidado Anual: R$ {row['valor_liquidado_ano']:,.2f}")
+                        st.markdown("---")
+
+            except Exception as e:
+                st.error(f"Erro ao gerar os rankings: {str(e)}")
 
         except Exception as e:
             st.error(f"Erro ao buscar dados: {str(e)}")
